@@ -34,6 +34,7 @@ from .manifest import ApprovedManifest
 from .publisher import SchedulePublisher
 from .fingerprint import Fingerprinter, ReferenceIndex
 from .queue import LocalQueue
+from .uplink import heartbeat_scope, record_heartbeat
 from .radioboss import RadioBoss
 from .recorder import ComplianceRecorder
 from .transcriber import Transcriber
@@ -332,8 +333,10 @@ class Worker:
         try:
             resp = self.erp.heartbeat(healthy=live is not None, live=live, telemetry=telem)
         except ErpError as exc:
+            record_heartbeat(self.q.db, heartbeat_scope(self.s), exc)
             log.debug("heartbeat failed: %s", exc)
             return
+        record_heartbeat(self.q.db, heartbeat_scope(self.s))
         # Final authority: urgent cut/switch commands ride the heartbeat for low
         # latency — queue them like any other work (executed next tick, acked).
         urgent = resp.get("urgent") or []

@@ -350,7 +350,7 @@ class MainWindow(QMainWindow):
         q = snap.get("queue") or {}
         rb_ok = bool(snap.get("radioboss_ok"))
         service = snap.get("service") or "Unknown"
-        uplink = self._infer_uplink(snap.get("log") or [])
+        uplink = snap.get("uplink") or "—"
         pending, acks = q.get("pending", 0), q.get("acks", 0)
 
         values = [
@@ -464,18 +464,6 @@ class MainWindow(QMainWindow):
             f"DB path:      {s.db_path}\n"
             f"Log:          {self.data.log_path()}\n"
         )
-
-    @staticmethod
-    def _infer_uplink(log_rows: list) -> str:
-        for _t, _lvl, msg in reversed(log_rows[-60:]):
-            m = msg.lower()
-            if "invalid gateway key" in m or " 401" in m or "→ http 401" in m:
-                return "auth error"
-            if "leased" in m or "acked" in m or "manifest synced" in m:
-                return "online"
-            if "uplink down" in m or "lease failed" in m:
-                return "offline"
-        return "—"
 
     def _fill_running(self, tracks: list) -> None:
         self.running.setRowCount(len(tracks))

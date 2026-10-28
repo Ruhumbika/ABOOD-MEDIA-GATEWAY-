@@ -17,6 +17,7 @@ from datetime import date, datetime, timezone
 from gateway.config import Settings, _find_env_file, load_settings
 from gateway.erp_client import ErpClient
 from gateway.radioboss import RadioBoss
+from gateway.uplink import heartbeat_scope, read_uplink
 
 SERVICE_ID = "mediacore-studio-gateway"
 
@@ -206,6 +207,10 @@ class GatewayData:
             "queue": self._queue_counts(),
             "log": tail_log(self.log_path(), 200),
             "service": service_status(),
+            "uplink": read_uplink(
+                self.s.db_path, heartbeat_scope(self.s),
+                max_age=max(30.0, 3.0 * self.s.heartbeat_interval),
+            ),
             "messages": self._recent_messages(),
             "cues": self._active_cues(),
         }
