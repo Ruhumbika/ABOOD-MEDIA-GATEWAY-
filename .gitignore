@@ -1,0 +1,38 @@
+
+# Backend reference
+/backend/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Runtime data
+/.gateway-test/
+/data/
+/media/
+/recordings/
+*.db
+*.db-*
+*.sqlite*
+*.log
+
+# Build outputs and backups
+/build/
+/dist/
+*.bak
+*.zip
+
+# Editor metadata
+.refact/
