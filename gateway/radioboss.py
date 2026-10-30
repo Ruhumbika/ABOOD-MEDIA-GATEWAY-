@@ -115,6 +115,19 @@ class RadioBoss:
         console's 'Previous' card for gateway stations (unreachable from cloud)."""
         return self._parse_tracks(self._call({"action": "getlastplayed"}))[: max(1, limit)]
 
+    def play_history(self) -> list[dict] | None:
+        """Full available history with source start timestamps; None on failure."""
+        root = self._xml(self._call({"action": "getlastplayed"}))
+        if root is None or root.tag != "LastPlayed":
+            return None
+        tracks = []
+        for node in root.iter("TRACK"):
+            row = self._track(node)
+            if row is not None:
+                row["start_time"] = self._attr(node, "STARTTIME")
+                tracks.append(row)
+        return tracks
+
     def healthy(self) -> bool:
         body = self._call({"action": "playbackinfo"})
         return body is not None and "<Info" in body

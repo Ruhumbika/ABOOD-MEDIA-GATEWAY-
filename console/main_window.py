@@ -258,6 +258,15 @@ class MainWindow(QMainWindow):
                                     [_RESIZE.ResizeToContents, _RESIZE.ResizeToContents,
                                      _RESIZE.Stretch, _RESIZE.ResizeToContents])
         self.tabs.addTab(self._wrap(self.messages), "Listener Messages")
+        history_w = QWidget(); history_layout = QVBoxLayout(history_w)
+        self.history_summary = QLabel("Play history — loading…")
+        self.history_summary.setWordWrap(True)
+        self.play_history = self._table(["Start (studio time)", "Title", "Artist", "Delivery"],
+                                       [_RESIZE.ResizeToContents, _RESIZE.Stretch,
+                                        _RESIZE.Interactive, _RESIZE.ResizeToContents])
+        history_layout.addWidget(self.history_summary)
+        history_layout.addWidget(self.play_history)
+        self.tabs.addTab(history_w, "Play History")
         mid.addWidget(self.tabs, 5)
 
         gb_ro = QGroupBox("Running Order")
@@ -367,6 +376,7 @@ class MainWindow(QMainWindow):
         self._fill_running(snap.get("running_order") or [])
         self._fill_log(snap.get("log") or [])
         self._fill_ops(snap.get("log") or [])
+        self._fill_play_history(snap.get("play_history") or {})
         self._fill_messages(snap.get("messages") or [])
         self._update_cues(snap.get("cues") or [])
 
@@ -464,6 +474,24 @@ class MainWindow(QMainWindow):
             f"DB path:      {s.db_path}\n"
             f"Log:          {self.data.log_path()}\n"
         )
+
+    def _fill_play_history(self, history: dict) -> None:
+        mode = ("Capture disabled" if not history.get("enabled") else
+                "Delivery enabled" if history.get("delivery_enabled") else "Local capture only")
+        if history.get("enabled") and not history.get("available"):
+            mode += " • Waiting for history storage"
+        self.history_summary.setText(
+            f"{mode} • Pending: {history.get('pending', 0)} • Sent: {history.get('sent', 0)}\n"
+            "RadioBOSS history observations; completion is not verified.")
+        events = history.get("events") or []
+        self.play_history.setRowCount(len(events))
+        for row, event in enumerate(events):
+            values = [event.get("started_at_local", ""),
+                      event.get("title") or event.get("casttitle") or event.get("filename", ""),
+                      event.get("artist", ""), event.get("delivery", "Pending")]
+            tip = event.get("last_error") or f"Delivery attempts: {event.get('attempts', 0)}"
+            for col, value in enumerate(values):
+                self.play_history.setItem(row, col, _item(str(value), tip))
 
     def _fill_running(self, tracks: list) -> None:
         self.running.setRowCount(len(tracks))

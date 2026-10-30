@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # what listeners hear). Optional; empty disables the button.
     monitor_stream_url: str = ""
 
+    # RadioBOSS history capture is local; delivery needs an agreed backend contract.
+    proof_of_play_enabled: bool = False
+    proof_of_play_endpoint: str = ""  # relative API path; blank = local capture only
+    proof_of_play_timezone: str = ""  # source IANA timezone label, e.g. Africa/Dar_es_Salaam
+
     # ── Listener SMS ingest (studio-local) ──────────────────────────────
     # Read inbound listener SMS so the presenter can read them on-air and each
     # sender is registered as audience reach in MediaERP.

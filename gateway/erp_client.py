@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from urllib.parse import urlsplit
 
 import requests
 
@@ -138,3 +139,32 @@ class ErpClient:
     def report_ad_reads(self, reads: list[dict]) -> dict:
         """Report live-read ad verifications (transcript vs required script)."""
         return self._post("gateway/ad-reads", {"reads": reads})
+
+    def report_play_events(self, endpoint: str, events: list[dict]) -> list[str]:
+        """Opt-in v1 contract. A 200 without explicit event ids is NOT an ACK."""
+        try:
+            path = urlsplit(endpoint)
+        except ValueError as exc:
+            raise ErpError("invalid play-event endpoint") from exc
+        if (not endpoint or endpoint.startswith("/") or path.scheme or path.netloc
+                or path.query or path.fragment or "\\" in endpoint or "%" in endpoint
+                or any(p in ("", ".", "..") for p in endpoint.split("/"))):
+            raise ErpError("play-event endpoint must be a relative API path")
+        try:
+            resp = self.session.post(
+                f"{self.base_url}/{endpoint}",
+                json={"schema_version": 1, "gateway_id": self.gateway_id, "events": events},
+                timeout=self.timeout, allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            raise ErpError("play-event transport failure") from exc
+        if not 200 <= resp.status_code < 300:
+            raise ErpError(f"play-event HTTP {resp.status_code}")
+        try:
+            body = resp.json()
+        except ValueError as exc:
+            raise ErpError("invalid play-event acknowledgement") from exc
+        ids = body.get("accepted_event_ids") if isinstance(body, dict) else None
+        if not isinstance(ids, list) or not all(isinstance(x, str) for x in ids):
+            raise ErpError("missing accepted_event_ids acknowledgement")
+        return ids
