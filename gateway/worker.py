@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sqlite3
 import time
 from datetime import date as _date
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,7 @@ from .governance.usb_monitor import UsbMonitor
 from .manifest import ApprovedManifest
 from .publisher import SchedulePublisher
 from .fingerprint import Fingerprinter, ReferenceIndex
+from .proof_of_play import PlayOutbox, event_scope
 from .queue import LocalQueue
 from .uplink import heartbeat_scope, record_heartbeat
 from .radioboss import RadioBoss
@@ -61,6 +63,9 @@ class Worker:
             settings.insert_position,
         )
         self.q = LocalQueue(settings.db_path)
+        self.proof = (PlayOutbox(self.q.db, event_scope(settings), settings.gateway_id,
+                                settings.proof_of_play_timezone)
+                      if settings.proof_of_play_enabled else None)
         self.filesync = FileSync(self.erp, settings.media_folder, settings.download_workers)
         self.publisher = SchedulePublisher(self.erp, self.filesync, settings.schedule_folder)
 
@@ -128,6 +133,11 @@ class Worker:
         log.info("Studio Gateway stopped")
 
     def tick(self) -> None:
+        try:
+            self._capture_play_history()
+        except sqlite3.Error:
+            # An optional history-store failure must not block playout commands.
+            log.warning("could not persist play history", exc_info=True)
         self._lease()
         self._execute_pending()
         self._flush_acks()
@@ -137,8 +147,23 @@ class Worker:
         self._governance()
         self._poll_sms()          # read inbound listener SMS (studio-local)
         self._flush_interactions()  # register them as reach (retried until uplink up)
+        if self.proof is not None:
+            self.proof.flush(self.erp, self.s.proof_of_play_endpoint)
 
     # ── steps ──────────────────────────────────────────────────────────
+    def _capture_play_history(self) -> None:
+        if self.proof is None:
+            return
+        history = self.rb.play_history()
+        if history is None:
+            log.warning("play history unavailable; no play events inferred")
+            return
+        added, skipped = self.proof.capture(history)
+        if added:
+            log.info("captured %s RadioBOSS play event(s)", added)
+        if skipped:
+            log.warning("skipped %s history row(s) without filename/valid STARTTIME", skipped)
+
     def _lease(self) -> None:
         try:
             ops = self.erp.lease(self.s.lease_limit)

@@ -16,6 +16,7 @@ from datetime import date, datetime, timezone
 
 from gateway.config import Settings, _find_env_file, load_settings
 from gateway.erp_client import ErpClient
+from gateway.proof_of_play import event_scope, read_play_events
 from gateway.radioboss import RadioBoss
 from gateway.uplink import heartbeat_scope, read_uplink
 
@@ -211,6 +212,9 @@ class GatewayData:
                 self.s.db_path, heartbeat_scope(self.s),
                 max_age=max(30.0, 3.0 * self.s.heartbeat_interval),
             ),
+            "play_history": dict(read_play_events(self.s.db_path, event_scope(self.s)),
+                                 enabled=self.s.proof_of_play_enabled,
+                                 delivery_enabled=bool(self.s.proof_of_play_endpoint)),
             "messages": self._recent_messages(),
             "cues": self._active_cues(),
         }
